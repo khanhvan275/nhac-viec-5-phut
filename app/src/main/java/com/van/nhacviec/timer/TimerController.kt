@@ -8,6 +8,11 @@ import android.os.Build
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
 import com.van.nhacviec.R
+import com.van.nhacviec.data.EXERCISE_GREAT_MIN
+import com.van.nhacviec.data.EXERCISE_PASS_MIN
+import com.van.nhacviec.data.PendingLog
+import com.van.nhacviec.data.Plan
+import com.van.nhacviec.data.PlanKind
 import com.van.nhacviec.data.Session
 import com.van.nhacviec.data.Store
 import com.van.nhacviec.data.TimerState
@@ -22,15 +27,15 @@ import com.van.nhacviec.ui.colors
 /** Bấm giờ: đếm thời gian làm việc, hết mục tiêu thì hỏi làm tiếp hay nghỉ. */
 object TimerController {
 
-    fun start(ctx: Context, taskId: String) {
+    fun start(ctx: Context, taskId: String, reviewStepId: String? = null) {
         val cur = Store.value.timer
-        if (cur != null && cur.taskId != taskId) finish(ctx, markDone = false)
+        if (cur != null && (cur.taskId != taskId || cur.reviewStepId != reviewStepId)) finish(ctx, markDone = false)
         if (Store.value.timer?.taskId == taskId) {
             resume(ctx)
             return
         }
         val now = System.currentTimeMillis()
-        Store.update { it.copy(timer = TimerState(taskId = taskId, runningSince = now)) }
+        Store.update { it.copy(timer = TimerState(taskId = taskId, runningSince = now, reviewStepId = reviewStepId)) }
         Notifier.cancel(ctx, taskId.hashCode())
         refresh(ctx)
     }
@@ -75,10 +80,49 @@ object TimerController {
             val sessions = if (minutes > 0) d.sessions + Session(t.taskId, t.startedAt, minutes, today()) else d.sessions
             d.copy(timer = null, sessions = sessions)
         }
-        if (markDone) Store.setDone(t.taskId, true) else Store.snooze(t.taskId)
+        val plan = Store.value.planOf(Store.value.task(t.taskId))
+        if (plan != null) {
+            finishPlan(ctx, plan, t, minutes)
+        } else if (markDone) Store.setDone(t.taskId, true) else Store.snooze(t.taskId)
         cancelAlarm(ctx)
         Notifier.cancel(ctx, Notifier.ID_TIMER)
         Notifier.cancel(ctx, Notifier.ID_TIMER_PROMPT)
+    }
+
+    /** Việc của lộ trình: hỏi % đã học, ghi phút tập, hoặc hỏi kết quả ôn tập. */
+    private fun finishPlan(ctx: Context, plan: Plan, t: TimerState, minutes: Int) {
+        val title: String
+        val body: String
+        if (t.reviewStepId != null) {
+            Store.setPending(PendingLog(plan.id, t.reviewStepId, minutes, review = true))
+            title = "Ôn xong rồi! Nhớ được nhiều không?"
+            body = "Mở app để chọn Nhớ tốt hoặc Quên nhiều."
+        } else if (plan.kind == PlanKind.EXERCISE) {
+            val pl = Store.logExercise(plan.id, minutes)
+            val total = pl?.exerciseTotal ?: minutes
+            title = when {
+                total >= EXERCISE_GREAT_MIN -> "$total phút! Amazing, vượt mức rồi!"
+                total >= EXERCISE_PASS_MIN -> "Đạt rồi! $total phút hôm nay"
+                else -> "Mới $total phút, thêm chút nữa là đạt"
+            }
+            body = if (total >= EXERCISE_PASS_MIN) "Mai: ${Store.value.plan(plan.id)?.currentStep(today() + 1)?.title ?: ""}. Chỉ cần 5 phút."
+            else "Cần $EXERCISE_PASS_MIN phút là đạt hôm nay."
+        } else {
+            val step = plan.currentStep() ?: return
+            Store.setPending(PendingLog(plan.id, step.id, minutes))
+            title = "Học được $minutes phút, giỏi lắm!"
+            body = "${step.title} đã xong đến bao nhiêu %? Chạm để ghi lại."
+        }
+        val n = NotificationCompat.Builder(ctx, Notifier.CH_NAG)
+            .setSmallIcon(R.drawable.ic_stat)
+            .setColor(C.Primary.toArgb())
+            .setLargeIcon(Mochi.bitmap(192, Mood.HAPPY, 0xFFB9D7F4.toInt()))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setContentIntent(Notifier.openAppIntent(ctx, null, 9))
+            .setAutoCancel(true)
+            .build()
+        Notifier.notify(ctx, Notifier.ID_LOG, n)
     }
 
     fun restore(ctx: Context) = refresh(ctx)
@@ -92,7 +136,7 @@ object TimerController {
             return
         }
         val task = Store.value.task(t.taskId)
-        val title = task?.title ?: "Đang làm việc"
+        val title = task?.let { Store.value.titleOf(it) } ?: "Đang làm việc"
         val running = t.runningSince != null
         val color = task?.quadrant?.colors()?.mochi?.toArgb() ?: 0xFFB9D7F4.toInt()
         val b = NotificationCompat.Builder(ctx, Notifier.CH_TIMER)

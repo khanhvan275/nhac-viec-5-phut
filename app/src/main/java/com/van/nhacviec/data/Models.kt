@@ -39,6 +39,8 @@ data class Task(
     val nagLevel: Int = 0,
     val nagDay: Long = 0,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Việc này là việc hằng ngày của một lộ trình. */
+    val planId: String? = null,
 ) {
     fun isDone(today: Long = today()): Boolean =
         if (daily) today in doneDays else doneAt != null
@@ -85,6 +87,8 @@ data class TimerState(
     val accumulatedMs: Long = 0,
     val targetMin: Int = 5,
     val startedAt: Long = System.currentTimeMillis(),
+    /** Đang ôn tập lại một bài của lộ trình. */
+    val reviewStepId: String? = null,
 ) {
     fun elapsedMs(now: Long = System.currentTimeMillis()): Long =
         accumulatedMs + (runningSince?.let { now - it } ?: 0)
@@ -97,8 +101,24 @@ data class AppData(
     val countdowns: List<Countdown> = emptyList(),
     val settings: Settings = Settings(),
     val timer: TimerState? = null,
+    val plans: List<Plan> = emptyList(),
+    val pendingLog: PendingLog? = null,
 ) {
     fun task(id: String?): Task? = tasks.firstOrNull { it.id == id }
+
+    fun plan(id: String?): Plan? = plans.firstOrNull { it.id == id }
+
+    fun planOf(t: Task?): Plan? = t?.planId?.let { plan(it) }
+
+    /** Tên hiển thị: việc của lộ trình kèm bài hôm nay. */
+    fun titleOf(t: Task): String = planOf(t)?.shortTitle() ?: t.title
+
+    /** Chi tiết hôm nay: lộ trình tự tính, việc thường dùng ghi chú. */
+    fun detailOf(t: Task, today: Long = today()): String =
+        planOf(t)?.todayText(today) ?: t.todayDetail(today).ifBlank { t.detail }
+
+    fun dueReviews(today: Long = today()): List<Pair<Plan, PlanStep>> =
+        plans.flatMap { p -> p.dueReviews(today).map { p to it } }
 
     fun minutesToday(taskId: String, today: Long = today()): Int =
         sessions.filter { it.taskId == taskId && it.day == today }.sumOf { it.minutes }

@@ -75,7 +75,11 @@ fun TimerScreen(d: AppData, back: () -> Unit) {
             RoundIcon("←", bg = Color(0xB3FFFFFF), onClick = back)
             Column {
                 Text("0${task.quadrant.no} · ${task.quadrant.label.uppercase()}", style = t(12, 800, Color(0xFF2F4A70)))
-                Text(task.todayDetail().ifBlank { task.title }, style = t(17, 800))
+                Text(
+                    if (tm.reviewStepId != null) "Ôn: " + (d.planOf(task)?.steps?.firstOrNull { it.id == tm.reviewStepId }?.title ?: task.title)
+                    else d.titleOf(task).let { title -> task.todayDetail().ifBlank { title } },
+                    style = t(17, 800),
+                )
             }
         }
         Column(

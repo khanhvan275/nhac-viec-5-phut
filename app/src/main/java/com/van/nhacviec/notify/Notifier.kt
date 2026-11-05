@@ -15,6 +15,9 @@ import androidx.core.content.ContextCompat
 import com.van.nhacviec.MainActivity
 import com.van.nhacviec.R
 import com.van.nhacviec.data.Countdown
+import com.van.nhacviec.data.Plan
+import com.van.nhacviec.data.PlanStep
+import com.van.nhacviec.data.Store
 import com.van.nhacviec.data.Task
 import com.van.nhacviec.ui.C
 import com.van.nhacviec.ui.Mochi
@@ -28,6 +31,8 @@ object Notifier {
 
     const val ID_TIMER = 1001
     const val ID_TIMER_PROMPT = 1002
+    const val ID_LOG = 1003
+    const val ID_REVIEW = 1004
 
     fun createChannels(ctx: Context) {
         val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -69,7 +74,7 @@ object Notifier {
     fun nag(ctx: Context, task: Task, level: Int) {
         if (!canNotify(ctx)) return
         val line = Messages.pick(level, task.title)
-        val detail = task.todayDetail().ifBlank { task.detail }
+        val detail = Store.value.detailOf(task)
         val body = if (detail.isNotBlank()) "${line.body}\n${detail}" else line.body
         val icon = Mochi.bitmap(192, Messages.mood(level), task.quadrant.colors().mochi.toArgb())
         val nid = task.id.hashCode()
@@ -105,6 +110,25 @@ object Notifier {
             .setAutoCancel(true)
             .build()
         notify(ctx, c.id.hashCode() + days.toInt(), n)
+    }
+
+    fun review(ctx: Context, items: List<Pair<Plan, PlanStep>>) {
+        if (!canNotify(ctx) || items.isEmpty()) return
+        val first = items.first()
+        val title = if (items.size == 1) "Hôm nay ôn: ${first.second.title}" else "Hôm nay có ${items.size} bài cần ôn"
+        val body = items.take(4).joinToString("\n") { "• ${it.second.title} · ${it.first.name}" } +
+            "\nÔn lại một chút để nhớ lâu hơn. Just 5 minutes!"
+        val n = NotificationCompat.Builder(ctx, CH_NAG)
+            .setSmallIcon(R.drawable.ic_stat)
+            .setColor(C.Primary.toArgb())
+            .setLargeIcon(Mochi.bitmap(192, Mood.PLEAD, 0xFFFCEFC0.toInt()))
+            .setContentTitle(title)
+            .setContentText(body.lineSequence().first())
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(openAppIntent(ctx, null, ID_REVIEW))
+            .setAutoCancel(true)
+            .build()
+        notify(ctx, ID_REVIEW, n)
     }
 
     fun notify(ctx: Context, id: Int, n: android.app.Notification) {

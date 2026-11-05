@@ -2,6 +2,7 @@ package com.van.nhacviec
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,6 +23,10 @@ import com.van.nhacviec.timer.TimerController
 import com.van.nhacviec.ui.CountdownScreen
 import com.van.nhacviec.ui.EditTaskScreen
 import com.van.nhacviec.ui.HomeScreen
+import com.van.nhacviec.ui.ImportPlanScreen
+import com.van.nhacviec.ui.LogProgressDialog
+import com.van.nhacviec.ui.PlanDetailScreen
+import com.van.nhacviec.ui.PlansScreen
 import com.van.nhacviec.ui.NhacViecTheme
 import com.van.nhacviec.ui.QuadrantScreen
 import com.van.nhacviec.ui.SettingsScreen
@@ -36,6 +41,9 @@ sealed interface Screen {
     data object Timer : Screen
     data object Countdowns : Screen
     data object SettingsTab : Screen
+    data object PlansTab : Screen
+    data class PlanDetail(val planId: String) : Screen
+    data class ImportPlan(val text: String = "", val targetPlanId: String? = null) : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -68,6 +76,11 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(i: Intent?) {
         i ?: return
+        sharedText(i)?.let { text ->
+            i.action = null
+            go(Screen.ImportPlan(text), reset = true)
+            return
+        }
         i.getStringExtra(EXTRA_START_TASK)?.let { id ->
             i.removeExtra(EXTRA_START_TASK)
             if (Store.value.task(id) != null) {
@@ -81,6 +94,23 @@ class MainActivity : ComponentActivity() {
             if (key == "countdown") go(Screen.Countdowns, reset = true)
             else runCatching { Quadrant.valueOf(key) }.getOrNull()?.let { go(Screen.InQuadrant(it), reset = true) }
         }
+    }
+
+    /** Lộ trình chia sẻ từ ChatGPT/Gemini hoặc mở từ file .txt/.md. */
+    private fun sharedText(i: Intent): String? {
+        val uri: Uri? = when (i.action) {
+            Intent.ACTION_SEND -> {
+                i.getStringExtra(Intent.EXTRA_TEXT)?.let { if (it.isNotBlank()) return it }
+                if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                else @Suppress("DEPRECATION") i.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            }
+            Intent.ACTION_VIEW -> i.data
+            else -> null
+        }
+        uri ?: return null
+        return runCatching {
+            contentResolver.openInputStream(uri)?.use { it.readBytes().take(200_000).toByteArray().decodeToString() }
+        }.getOrNull()
     }
 
     fun go(s: Screen, reset: Boolean = false) {
@@ -112,6 +142,10 @@ class MainActivity : ComponentActivity() {
             Screen.Timer -> TimerScreen(data, back = goBack)
             Screen.Countdowns -> CountdownScreen(data, nav = nav, tab = tabTo)
             Screen.SettingsTab -> SettingsScreen(data, tab = tabTo)
+            Screen.PlansTab -> PlansScreen(data, nav = nav, tab = tabTo)
+            is Screen.PlanDetail -> PlanDetailScreen(data, s.planId, nav = nav, back = goBack)
+            is Screen.ImportPlan -> ImportPlanScreen(data, s.text, s.targetPlanId, back = goBack, saved = { tab(Screen.PlansTab) })
         }
+        data.pendingLog?.let { LogProgressDialog(data, it) }
     }
 }

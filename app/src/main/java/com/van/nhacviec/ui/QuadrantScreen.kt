@@ -72,7 +72,7 @@ fun QuadrantScreen(d: AppData, q: Quadrant, nav: (Screen) -> Unit, back: () -> U
         ) {
             items(open, key = { it.id }) { task ->
                 TaskRow(d, task, td,
-                    onOpen = { nav(Screen.Edit(task.id, q)) },
+                    onOpen = { nav(task.planId?.let { Screen.PlanDetail(it) } ?: Screen.Edit(task.id, q)) },
                     onStart = { TimerController.start(ctx, task.id); nav(Screen.Timer) },
                     onToggle = { Store.setDone(task.id, true) })
             }
@@ -83,7 +83,7 @@ fun QuadrantScreen(d: AppData, q: Quadrant, nav: (Screen) -> Unit, back: () -> U
                 item { Text("Đã xong", style = t(13, 800, C.Muted), modifier = Modifier.padding(top = 8.dp, start = 4.dp)) }
                 items(done, key = { "d" + it.id }) { task ->
                     TaskRow(d, task, td,
-                        onOpen = { nav(Screen.Edit(task.id, q)) },
+                        onOpen = { nav(task.planId?.let { Screen.PlanDetail(it) } ?: Screen.Edit(task.id, q)) },
                         onStart = null,
                         onToggle = { Store.setDone(task.id, false) })
                 }
@@ -118,11 +118,16 @@ private fun TaskRow(
                 style = t(15, 800, if (isDone) C.Muted else C.Ink)
                     .copy(textDecoration = if (isDone) TextDecoration.LineThrough else null),
             )
-            val dayDetail = task.todayDetail(td)
-            if (dayDetail.isNotBlank()) Text("Hôm nay: $dayDetail", style = t(13, 600, C.Ink))
-            if (task.detail.isNotBlank()) Text(task.detail, style = t(12, 600, C.Muted))
+            if (task.planId != null) {
+                Text(d.detailOf(task, td), style = t(13, 600, C.Ink))
+            } else {
+                val dayDetail = task.todayDetail(td)
+                if (dayDetail.isNotBlank()) Text("Hôm nay: $dayDetail", style = t(13, 600, C.Ink))
+                if (task.detail.isNotBlank()) Text(task.detail, style = t(12, 600, C.Muted))
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (task.daily) Tag("HẰNG NGÀY", col.bg, col.ink)
+                if (task.planId != null) Tag("LỘ TRÌNH", col.bg, col.ink)
+                else if (task.daily) Tag("HẰNG NGÀY", col.bg, col.ink)
                 task.dueAt?.let { Tag(fmtDue(it), col.bg, col.ink) }
                 val m = d.minutesToday(task.id, td)
                 if (m > 0) Tag("đã làm ${fmtMinutes(m)}", C.Soft, C.Muted)

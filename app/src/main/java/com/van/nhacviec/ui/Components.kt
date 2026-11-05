@@ -74,6 +74,7 @@ fun BottomBar(current: Screen, tab: (Screen) -> Unit, onAdd: (() -> Unit)? = nul
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             NavItem("Hôm nay", current == Screen.Home) { tab(Screen.Home) }
+            NavItem("Lộ trình", current == Screen.PlansTab) { tab(Screen.PlansTab) }
             NavItem("Đếm ngày", current == Screen.Countdowns) { tab(Screen.Countdowns) }
             NavItem("Cài đặt", current == Screen.SettingsTab) { tab(Screen.SettingsTab) }
         }
@@ -93,7 +94,7 @@ private fun RowScope.NavItem(label: String, active: Boolean, onClick: () -> Unit
             .background(if (active) C.Header else Color.Transparent)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Text(label, style = t(13, if (active) 800 else 700, if (active) C.Ink else C.Muted)) }
+    ) { Text(label, style = t(12, if (active) 800 else 700, if (active) C.Ink else C.Muted), maxLines = 1) }
 }
 
 @Composable

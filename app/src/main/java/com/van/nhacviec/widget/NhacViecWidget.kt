@@ -136,7 +136,7 @@ private fun Tile(d: AppData, q: Quadrant, td: Long, modifier: GlanceModifier) {
         } else {
             open.take(2).forEachIndexed { i, t ->
                 Text(
-                    t.title,
+                    d.titleOf(t),
                     maxLines = 1,
                     style = TextStyle(
                         color = cp(Ink),

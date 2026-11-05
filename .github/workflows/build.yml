@@ -41,7 +41,7 @@ jobs:
           KEYSTORE_PASSWORD: nhacviec5phut
           KEY_PASSWORD: nhacviec5phut
           KEY_ALIAS: nhacviec
-        run: gradle :app:assembleRelease --no-daemon --stacktrace
+        run: gradle :app:testReleaseUnitTest :app:assembleRelease --no-daemon --stacktrace
 
       - name: Đặt tên file cài
         run: cp app/build/outputs/apk/release/app-release.apk NhacViec5Phut.apk

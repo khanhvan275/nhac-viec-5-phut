@@ -45,12 +45,26 @@ object Reminders {
             }
         }
 
+        // Ôn tập giãn cách: báo một lần mỗi ngày.
+        val reviews = d.dueReviews(td)
+        if (reviews.isNotEmpty()) {
+            val fresh = reviews.filter { it.first.reviewNotifiedDay != td }
+            if (fresh.isNotEmpty()) {
+                Notifier.review(ctx, reviews)
+                fresh.map { it.first }.distinctBy { it.id }.forEach { p ->
+                    Store.update { x -> x.copy(plans = x.plans.map { if (it.id == p.id) it.copy(reviewNotifiedDay = td) else it }) }
+                }
+            }
+        }
+
         // Đang bấm giờ thì không làm phiền.
         if (d.timer?.runningSince != null) return
 
         var sent = 0
         val due = d.tasks
             .filter { !it.isDone(td) }
+            // Lộ trình đã học xong hết thì thôi nhắc.
+            .filter { t -> d.planOf(t)?.let { it.currentStep(td) != null } ?: true }
             .map { t -> if (t.daily && t.nagDay != td) t.copy(nagLevel = 0, lastRemindAt = 0, nagDay = td) else t }
             .filter { t ->
                 val since = if (t.lastRemindAt == 0L && !t.daily) t.createdAt else t.lastRemindAt

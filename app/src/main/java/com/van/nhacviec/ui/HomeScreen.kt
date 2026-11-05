@@ -89,6 +89,22 @@ fun HomeScreen(d: AppData, nav: (Screen) -> Unit, tab: (Screen) -> Unit) {
             Column(Modifier.offset(y = (-28).dp).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 UpdateBanner()
                 RunningTimerBar(d) { nav(Screen.Timer) }
+                val reviews = d.dueReviews(td)
+                if (reviews.isNotEmpty()) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(C.Yellow)
+                            .clickable { tab(Screen.PlansTab) }.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        MochiView(Mood.PLEAD, C.White, 34.dp)
+                        Column(Modifier.weight(1f)) {
+                            Text("Hôm nay ôn ${reviews.size} bài", style = t(14, 800))
+                            Text(reviews.take(2).joinToString(" · ") { it.second.title }, style = t(12, 600, C.Muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Text("Ôn ▶", style = t(13, 800, Color(0xFF7D5E00)))
+                    }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     QuadrantCard(d, Quadrant.Q1, Modifier.weight(1f)) { nav(Screen.InQuadrant(Quadrant.Q1)) }
                     QuadrantCard(d, Quadrant.Q2, Modifier.weight(1f)) { nav(Screen.InQuadrant(Quadrant.Q2)) }
@@ -139,9 +155,10 @@ private fun QuadrantCard(d: AppData, q: Quadrant, modifier: Modifier, onClick: (
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.White).padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Text(task.title, style = t(13, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val sub = task.todayDetail(td).ifBlank { task.detail }
+                val sub = d.detailOf(task, td)
                 if (sub.isNotBlank()) Text(sub, style = t(11, 600, C.Muted), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (task.daily) Text("HẰNG NGÀY", style = t(10, 800, col.ink))
+                if (task.planId != null) Text("LỘ TRÌNH", style = t(10, 800, col.ink))
+                else if (task.daily) Text("HẰNG NGÀY", style = t(10, 800, col.ink))
                 else task.dueAt?.let { Text(fmtDue(it), style = t(11, 700, col.ink)) }
             }
         }
@@ -177,7 +194,7 @@ fun RunningTimerBar(d: AppData, onClick: () -> Unit) {
         MochiView(if (tm.runningSince != null) Mood.HAPPY else Mood.CALM, task.quadrant.colors().mochi, 32.dp)
         Column(Modifier.weight(1f)) {
             Text(if (tm.runningSince != null) "Đang làm" else "Tạm dừng", style = t(11, 700, C.Muted))
-            Text(task.title, style = t(14, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(d.titleOf(task), style = t(14, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text("%02d:%02d".format(sec / 60, sec % 60), style = t(18, 800, task.quadrant.colors().ink))
     }
