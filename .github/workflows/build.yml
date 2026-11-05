@@ -1,0 +1,64 @@
+name: Đóng gói app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Lấy khóa ký app
+        id: key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > app/release.jks
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Chưa có khóa ký: chỉ kiểm tra build, không phát hành."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Đóng gói
+        env:
+          KEYSTORE_PASSWORD: nhacviec5phut
+          KEY_PASSWORD: nhacviec5phut
+          KEY_ALIAS: nhacviec
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Đặt tên file cài
+        run: cp app/build/outputs/apk/release/app-release.apk NhacViec5Phut.apk
+
+      - name: Lưu bản kiểm tra
+        if: steps.key.outputs.signed != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ban-kiem-tra
+          path: NhacViec5Phut.apk
+
+      - name: Phát hành bản mới
+        if: steps.key.outputs.signed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Bản 1.0.${{ github.run_number }}
+          body: ${{ github.event.head_commit.message }}
+          files: NhacViec5Phut.apk
+          make_latest: true
