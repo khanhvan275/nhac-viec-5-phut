@@ -53,12 +53,23 @@ jobs:
           name: ban-kiem-tra
           path: NhacViec5Phut.apk
 
+      - name: Lấy ghi chú thay đổi
+        id: notes
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          {
+            echo "text<<EOF"
+            printf '%s\n' "$MSG" | grep -v -E '^(Co-Authored-By|Claude-Session):' | sed '/^$/N;/^\n$/D'
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Phát hành bản mới
         if: steps.key.outputs.signed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
           name: Bản 1.0.${{ github.run_number }}
-          body: ${{ github.event.head_commit.message }}
+          body: ${{ steps.notes.outputs.text }}
           files: NhacViec5Phut.apk
           make_latest: true

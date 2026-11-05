@@ -64,7 +64,9 @@ object Updater {
                 Release(
                     build = build,
                     name = o["name"]?.jsonPrimitive?.content ?: tag,
-                    notes = o["body"]?.jsonPrimitive?.content ?: "",
+                    notes = (o["body"]?.jsonPrimitive?.content ?: "").lines()
+                        .filterNot { it.startsWith("Co-Authored-By") || it.startsWith("Claude-Session") }
+                        .joinToString("\n").trim(),
                     apkUrl = apk ?: "",
                 )
             }
