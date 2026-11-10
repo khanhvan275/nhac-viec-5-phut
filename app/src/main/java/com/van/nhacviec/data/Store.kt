@@ -1,8 +1,7 @@
 package com.van.nhacviec.data
 
 import android.content.Context
-import androidx.glance.appwidget.updateAll
-import com.van.nhacviec.widget.NhacViecWidget
+import com.van.nhacviec.widget.updateAllWidgets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -66,7 +65,7 @@ object Store {
 
     fun refreshWidget() {
         val ctx = appContext ?: return
-        scope.launch { runCatching { NhacViecWidget().updateAll(ctx) } }
+        scope.launch { updateAllWidgets(ctx) }
     }
 
     // ---- Các thao tác tiện dụng ----

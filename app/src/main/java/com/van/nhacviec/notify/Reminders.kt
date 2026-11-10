@@ -1,7 +1,6 @@
 package com.van.nhacviec.notify
 
 import android.content.Context
-import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -10,7 +9,7 @@ import androidx.work.WorkerParameters
 import com.van.nhacviec.data.Settings
 import com.van.nhacviec.data.Store
 import com.van.nhacviec.data.today
-import com.van.nhacviec.widget.NhacViecWidget
+import com.van.nhacviec.widget.updateAllWidgets
 import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
@@ -92,7 +91,7 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
     override suspend fun doWork(): Result {
         Store.init(applicationContext)
         runCatching { Reminders.run(applicationContext) }
-        runCatching { NhacViecWidget().updateAll(applicationContext) }
+        updateAllWidgets(applicationContext)
         return Result.success()
     }
 }

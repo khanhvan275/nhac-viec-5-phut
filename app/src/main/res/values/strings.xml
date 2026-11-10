@@ -2,5 +2,7 @@
 <resources>
     <string name="app_name">Nhắc Việc 5 Phút</string>
     <string name="widget_name">4 mục việc</string>
-    <string name="widget_desc">4 mục ưu tiên và đếm ngày</string>
+    <string name="widget_desc">4 mục ưu tiên, bấm ▶ để làm 5 phút</string>
+    <string name="widget2_name">Streak và đếm ngày</string>
+    <string name="widget2_desc">Chuỗi ngày liên tiếp và số ngày còn lại của phần mềm, cuộc thi</string>
 </resources>

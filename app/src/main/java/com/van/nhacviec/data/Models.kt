@@ -120,6 +120,29 @@ data class AppData(
     fun dueReviews(today: Long = today()): List<Pair<Plan, PlanStep>> =
         plans.flatMap { p -> p.dueReviews(today).map { p to it } }
 
+    /** Ngày đạt streak: xong ít nhất 1 việc, hoặc bấm giờ làm được từ 5 phút. */
+    fun passedDays(): Set<Long> {
+        val zone = java.time.ZoneId.systemDefault()
+        val days = HashSet<Long>()
+        tasks.forEach { t ->
+            days.addAll(t.doneDays)
+            t.doneAt?.let { days.add(java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay()) }
+        }
+        sessions.groupBy { it.day }.forEach { (day, l) -> if (l.sumOf { it.minutes } >= 5) days.add(day) }
+        return days
+    }
+
+    /** Số ngày liên tiếp đạt, tính đến hôm nay (hoặc hôm qua nếu hôm nay chưa đạt). */
+    fun streak(today: Long = today()): Int {
+        val days = passedDays()
+        var day = if (today in days) today else today - 1
+        var n = 0
+        while (day in days) {
+            n++; day--
+        }
+        return n
+    }
+
     fun minutesToday(taskId: String, today: Long = today()): Int =
         sessions.filter { it.taskId == taskId && it.day == today }.sumOf { it.minutes }
 }
