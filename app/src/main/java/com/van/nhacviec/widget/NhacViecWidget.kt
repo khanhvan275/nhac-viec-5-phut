@@ -17,6 +17,8 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
@@ -127,13 +129,13 @@ private fun Tile(d: AppData, q: Quadrant, td: Long, modifier: GlanceModifier) {
     val open = d.tasks.filter { it.quadrant == q && !it.isDone(td) }
         .filter { t -> d.planOf(t)?.let { it.currentStep(td) != null } ?: true }
         .sortedWith(compareBy<Task>({ it.dueAt ?: Long.MAX_VALUE }, { it.createdAt }))
-    val first = open.firstOrNull()
+    val openQuadrant = actionStartActivity<MainActivity>(actionParametersOf(KeyOpen to q.name))
 
-    Column(
-        modifier = modifier.background(col.bg).cornerRadius(18.dp).padding(horizontal = 10.dp, vertical = 8.dp)
-            .clickable(actionStartActivity<MainActivity>(actionParametersOf(KeyOpen to q.name))),
-    ) {
-        Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Column(modifier = modifier.background(col.bg).cornerRadius(18.dp).padding(start = 8.dp, end = 6.dp, top = 7.dp, bottom = 6.dp)) {
+        Row(
+            GlanceModifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, bottom = 4.dp).clickable(openQuadrant),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 "0${q.no} ${q.label.uppercase()}",
                 modifier = GlanceModifier.defaultWeight(),
@@ -144,34 +146,46 @@ private fun Tile(d: AppData, q: Quadrant, td: Long, modifier: GlanceModifier) {
                 Text("${open.size}", style = TextStyle(color = cp(col.ink), fontSize = 11.sp, fontWeight = FontWeight.Bold))
             }
         }
-        Spacer(GlanceModifier.height(3.dp))
-        if (first == null) {
-            Text("Trống, tuyệt!", maxLines = 1, style = TextStyle(color = cp(WMuted), fontSize = 12.sp))
+        if (open.isEmpty()) {
+            Box(GlanceModifier.fillMaxSize().clickable(openQuadrant)) {
+                Text("Trống, tuyệt!", maxLines = 1, style = TextStyle(color = cp(WMuted), fontSize = 12.sp))
+            }
         } else {
-            Text(
-                d.titleOf(first),
-                maxLines = 2,
-                style = TextStyle(color = cp(WInk), fontSize = 13.sp, fontWeight = FontWeight.Bold),
-            )
-        }
-        Spacer(GlanceModifier.defaultWeight())
-        if (first != null) {
-            Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    subLine(d, first, open.size - 1, td),
-                    modifier = GlanceModifier.defaultWeight(),
-                    maxLines = 1,
-                    style = TextStyle(color = cp(col.ink), fontSize = 11.sp),
-                )
-                if (q == Quadrant.Q1 || q == Quadrant.Q2) {
-                    Box(
-                        modifier = GlanceModifier.size(28.dp).background(Color.White).cornerRadius(14.dp)
-                            .clickable(actionStartActivity<MainActivity>(actionParametersOf(KeyStart to first.id))),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("▶", style = TextStyle(color = cp(col.ink), fontSize = 11.sp, fontWeight = FontWeight.Bold))
-                    }
+            // Tất cả việc đang mở, vuốt lên xuống khi không đủ chỗ.
+            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                items(open, itemId = { it.id.hashCode().toLong() }) { t ->
+                    TaskRow(d, t, td, col.ink, openQuadrant)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskRow(d: AppData, t: Task, td: Long, ink: Color, open: androidx.glance.action.Action) {
+    val sub = subLine(d, t, 0, td)
+    Box(GlanceModifier.fillMaxWidth().padding(bottom = 4.dp)) {
+        Row(
+            GlanceModifier.fillMaxWidth().background(Color(0xB3FFFFFF)).cornerRadius(10.dp)
+                .padding(start = 7.dp, end = 3.dp, top = 3.dp, bottom = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(GlanceModifier.defaultWeight().clickable(open)) {
+                Text(
+                    d.titleOf(t),
+                    maxLines = 1,
+                    style = TextStyle(color = cp(WInk), fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                )
+                if (sub.isNotBlank()) {
+                    Text(sub, maxLines = 1, style = TextStyle(color = cp(ink), fontSize = 10.sp))
+                }
+            }
+            Box(
+                modifier = GlanceModifier.size(24.dp).background(Color.White).cornerRadius(12.dp)
+                    .clickable(actionStartActivity<MainActivity>(actionParametersOf(KeyStart to t.id))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("▶", style = TextStyle(color = cp(ink), fontSize = 10.sp, fontWeight = FontWeight.Bold))
             }
         }
     }

@@ -29,6 +29,7 @@ object Reminders {
 
     /** Chạy mỗi ~15 phút: gửi lời nhắc đến hạn và thông báo đếm ngày. */
     fun run(ctx: Context) {
+        Store.rollCountdowns()
         val d = Store.value
         if (inSleep(d.settings)) return
         val now = System.currentTimeMillis()
@@ -38,7 +39,8 @@ object Reminders {
         d.countdowns.forEach { c ->
             val left = c.daysLeft(td)
             val mark = left.toInt()
-            if ((mark == 5 || mark == 1) && mark !in c.notified) {
+            val wanted = mark == 5 || mark == 1 || (mark == 0 && c.renews())
+            if (wanted && mark !in c.notified) {
                 Notifier.countdown(ctx, c, left)
                 Store.upsertCountdown(c.copy(notified = c.notified + mark))
             }

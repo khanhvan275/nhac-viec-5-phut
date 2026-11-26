@@ -18,7 +18,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +58,7 @@ fun PlansScreen(d: AppData, nav: (Screen) -> Unit, tab: (Screen) -> Unit) {
     val ctx = LocalContext.current
     val td = today()
     val reviews = d.dueReviews(td)
+    var toDelete by remember { mutableStateOf<Plan?>(null) }
 
     Column(Modifier.fillMaxSize().background(C.Bg)) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
@@ -117,15 +123,29 @@ fun PlansScreen(d: AppData, nav: (Screen) -> Unit, tab: (Screen) -> Unit) {
                         )
                     }
                 }
-                d.plans.sortedBy { it.createdAt }.forEach { p -> PlanCard(p, td) { nav(Screen.PlanDetail(p.id)) } }
+                d.plans.sortedBy { it.createdAt }.forEach { p ->
+                    PlanCard(p, td, onDelete = { toDelete = p }) { nav(Screen.PlanDetail(p.id)) }
+                }
             }
         }
         BottomBar(Screen.PlansTab, tab)
     }
+
+    toDelete?.let { p ->
+        AlertDialog(
+            onDismissRequest = { toDelete = null },
+            containerColor = C.White,
+            shape = RoundedCornerShape(28.dp),
+            title = { Text("Xóa \"${p.name}\"?", style = t(18, 800)) },
+            text = { Text("Lộ trình, tiến độ và lịch ôn sẽ bị xóa hẳn. App thôi nhắc học lộ trình này.", style = t(14, 600)) },
+            confirmButton = { Pill("Xóa", bg = Color(0xFFA33A45), size = 14) { Store.deletePlan(p.id); toDelete = null } },
+            dismissButton = { Pill("Giữ lại", bg = C.Soft, fg = C.Ink, size = 14) { toDelete = null } },
+        )
+    }
 }
 
 @Composable
-private fun PlanCard(p: Plan, td: Long, onClick: () -> Unit) {
+private fun PlanCard(p: Plan, td: Long, onDelete: () -> Unit, onClick: () -> Unit) {
     val (tagBg, tagInk) = p.kind.tagColors()
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(C.White).clickable(onClick = onClick).padding(14.dp),
@@ -139,6 +159,10 @@ private fun PlanCard(p: Plan, td: Long, onClick: () -> Unit) {
                 if (p.kind == PlanKind.EXERCISE) "chuỗi ${streak(p, td)} ngày" else "${p.doneCount()} / ${p.steps.size} ${p.kind.stepWord}",
                 style = t(12, 700, C.Muted),
             )
+            Box(
+                Modifier.padding(start = 8.dp).clip(RoundedCornerShape(999.dp)).background(C.Soft)
+                    .clickable(onClick = onDelete).padding(horizontal = 10.dp, vertical = 5.dp)
+            ) { Text("Xóa", style = t(11, 800, Color(0xFFA33A45))) }
         }
         Text(p.name, style = t(16, 800))
         Text(p.todayText(td), style = t(13, 600, Color(0xFF3A4A66)))

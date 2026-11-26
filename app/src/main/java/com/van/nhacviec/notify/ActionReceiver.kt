@@ -19,6 +19,11 @@ class ActionReceiver : BroadcastReceiver() {
         const val T_PLUS10 = "com.van.nhacviec.T_PLUS10"
         const val T_KEEP = "com.van.nhacviec.T_KEEP"
         const val T_PROMPT = "com.van.nhacviec.T_PROMPT"
+        const val EXTRA_COUNTDOWN = "countdown_id"
+        const val EXTRA_NOTIF = "notif_id"
+        const val CD_SAME = "com.van.nhacviec.CD_SAME"
+        const val CD_MONTH = "com.van.nhacviec.CD_MONTH"
+        const val CD_STOP = "com.van.nhacviec.CD_STOP"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -40,6 +45,15 @@ class ActionReceiver : BroadcastReceiver() {
             T_PLUS10 -> TimerController.extend(context, 10)
             T_KEEP -> TimerController.keepGoing(context)
             T_PROMPT -> TimerController.showPrompt(context)
+            CD_SAME, CD_MONTH, CD_STOP -> {
+                val cid = intent.getStringExtra(EXTRA_COUNTDOWN) ?: return
+                when (intent.action) {
+                    CD_SAME -> Store.renewCountdown(cid, oneMonth = false)
+                    CD_MONTH -> Store.renewCountdown(cid, oneMonth = true)
+                    else -> Store.stopCountdown(cid)
+                }
+                Notifier.cancel(context, intent.getIntExtra(EXTRA_NOTIF, 0))
+            }
         }
     }
 }

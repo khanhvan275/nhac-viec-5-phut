@@ -65,10 +65,46 @@ data class Countdown(
     val endDay: Long,
     val startDay: Long = today(),
     val onWidget: Boolean = true,
-    /** Các mốc đã thông báo (5, 1). */
+    /** Các mốc đã thông báo (5, 1, 0). */
     val notified: List<Int> = emptyList(),
+    /** Chu trình lặp lại: "month", "year" hoặc "day", kèm số lượng. */
+    val cycleUnit: String = "month",
+    val cycleCount: Int = 1,
+    /** Tự chạy chu trình mới khi hết. null = mặc định (phần mềm có, cuộc thi không). */
+    val autoRenew: Boolean? = null,
+    /** Số chu trình đã chạy tiếp. */
+    val renewals: Int = 0,
 ) {
     fun daysLeft(today: Long = today()): Long = endDay - today
+
+    fun renews(): Boolean = autoRenew ?: !contest
+
+    fun isMonthly(): Boolean = cycleUnit == "month" && cycleCount == 1
+
+    /** Ngày kết thúc chu trình kế tiếp, tính từ ngày hết hạn hiện tại. */
+    fun nextEnd(oneMonth: Boolean = false): Long {
+        val d = java.time.LocalDate.ofEpochDay(endDay)
+        val n = cycleCount.coerceAtLeast(1).toLong()
+        return when {
+            oneMonth -> d.plusMonths(1)
+            cycleUnit == "year" -> d.plusYears(n)
+            cycleUnit == "day" -> d.plusDays(n)
+            else -> d.plusMonths(n)
+        }.toEpochDay()
+    }
+
+    /** Chạy tiếp một chu trình: giống lần trước, hoặc đúng 1 tháng. */
+    fun renewed(oneMonth: Boolean = false): Countdown =
+        copy(startDay = endDay, endDay = nextEnd(oneMonth), notified = emptyList(), renewals = renewals + 1)
+
+    fun cycleLabel(): String {
+        val n = cycleCount.coerceAtLeast(1)
+        return when (cycleUnit) {
+            "year" -> if (n == 1) "1 năm" else "$n năm"
+            "day" -> "$n ngày"
+            else -> if (n == 1) "1 tháng" else "$n tháng"
+        }
+    }
 }
 
 @Serializable

@@ -55,10 +55,11 @@ object Notifier {
 
     private fun flags() = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
-    fun openAppIntent(ctx: Context, startTaskId: String? = null, req: Int = 0): PendingIntent {
+    fun openAppIntent(ctx: Context, startTaskId: String? = null, req: Int = 0, openCountdown: Boolean = false): PendingIntent {
         val i = Intent(ctx, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (startTaskId != null) putExtra(MainActivity.EXTRA_START_TASK, startTaskId)
+            if (openCountdown) putExtra(MainActivity.EXTRA_OPEN_QUADRANT, "countdown")
         }
         return PendingIntent.getActivity(ctx, req, i, flags())
     }
@@ -97,19 +98,45 @@ object Notifier {
 
     fun countdown(ctx: Context, c: Countdown, days: Long) {
         if (!canNotify(ctx)) return
-        val title = if (days <= 1) "Mai là hết hạn ${c.name}!" else "Còn $days ngày ${c.name}"
-        val body = if (c.contest) "Chuẩn bị bài thi nhé. You can do it!"
-        else "Tận dụng nốt nha: dùng ${c.name} 30 phút hôm nay?"
-        val n = NotificationCompat.Builder(ctx, CH_COUNT)
+        val renew = c.renews()
+        val title = when {
+            days <= 0 && renew -> "${c.name} hết chu trình hôm nay"
+            days <= 0 -> "Hôm nay là hạn cuối ${c.name}!"
+            days <= 1 -> "Mai là hết hạn ${c.name}!"
+            else -> "Còn $days ngày ${c.name}"
+        }
+        val body = when {
+            days <= 0 && renew -> "Không chọn gì thì mai app tự chạy tiếp ${c.cycleLabel()}. Muốn dừng thì bấm Dừng."
+            c.contest -> "Chuẩn bị bài thi nhé. You can do it!"
+            renew -> "Tận dụng nốt nha: dùng ${c.name} 30 phút hôm nay? Hết hạn app sẽ tự chạy chu trình mới."
+            else -> "Tận dụng nốt nha: dùng ${c.name} 30 phút hôm nay?"
+        }
+        val nid = c.id.hashCode() + days.toInt()
+        val b = NotificationCompat.Builder(ctx, CH_COUNT)
             .setSmallIcon(R.drawable.ic_stat)
             .setColor(C.Primary.toArgb())
             .setLargeIcon(Mochi.bitmap(192, Mood.PLEAD, 0xFFFBDADB.toInt()))
             .setContentTitle(title)
             .setContentText(body)
-            .setContentIntent(openAppIntent(ctx, null, c.id.hashCode()))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setContentIntent(openAppIntent(ctx, null, nid, openCountdown = true))
             .setAutoCancel(true)
-            .build()
-        notify(ctx, c.id.hashCode() + days.toInt(), n)
+        if (days <= 0 && renew) {
+            b.addAction(0, if (c.isMonthly()) "Tiếp 1 tháng" else "Lặp lại ${c.cycleLabel()}",
+                countdownAction(ctx, ActionReceiver.CD_SAME, c.id, nid, 1))
+            if (!c.isMonthly()) b.addAction(0, "Tiếp 1 tháng", countdownAction(ctx, ActionReceiver.CD_MONTH, c.id, nid, 2))
+            b.addAction(0, "Dừng", countdownAction(ctx, ActionReceiver.CD_STOP, c.id, nid, 3))
+        }
+        notify(ctx, nid, b.build())
+    }
+
+    private fun countdownAction(ctx: Context, action: String, id: String, nid: Int, k: Int): PendingIntent {
+        val i = Intent(ctx, ActionReceiver::class.java).apply {
+            this.action = action
+            putExtra(ActionReceiver.EXTRA_COUNTDOWN, id)
+            putExtra(ActionReceiver.EXTRA_NOTIF, nid)
+        }
+        return PendingIntent.getBroadcast(ctx, nid * 4 + k, i, flags())
     }
 
     fun review(ctx: Context, items: List<Pair<Plan, PlanStep>>) {

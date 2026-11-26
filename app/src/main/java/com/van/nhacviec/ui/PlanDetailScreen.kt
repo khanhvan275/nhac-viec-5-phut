@@ -75,6 +75,11 @@ fun PlanDetailScreen(d: AppData, planId: String, nav: (Screen) -> Unit, back: ()
                         .clickable { nav(Screen.ImportPlan(targetPlanId = p.id)) }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) { Text("Cập nhật", style = t(12, 800, tagInk)) }
+                Box(
+                    Modifier.clip(RoundedCornerShape(999.dp)).background(C.White)
+                        .clickable { confirmDelete = true }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) { Text("Xóa", style = t(12, 800, Color(0xFFA33A45))) }
             }
             if (p.kind != PlanKind.EXERCISE) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -41,6 +41,7 @@ object Store {
                     f.copyTo(File(f.parentFile, "data-loi-${System.currentTimeMillis()}.json"), true)
                 }
         }
+        runCatching { rollCountdowns() }
     }
 
     val value: AppData get() = _data.value
@@ -101,6 +102,32 @@ object Store {
     }
 
     fun deleteCountdown(id: String) = update { d -> d.copy(countdowns = d.countdowns.filterNot { it.id == id }) }
+
+    /** Vân chọn chạy tiếp ngay: giống chu trình trước hoặc đúng 1 tháng. */
+    fun renewCountdown(id: String, oneMonth: Boolean) = update { d ->
+        d.copy(countdowns = d.countdowns.map { if (it.id == id) it.copy(autoRenew = true).renewed(oneMonth) else it })
+    }
+
+    /** Vân bấm dừng: hết hạn thì thôi, không tự chạy tiếp. */
+    fun stopCountdown(id: String) = update { d ->
+        d.copy(countdowns = d.countdowns.map { if (it.id == id) it.copy(autoRenew = false) else it })
+    }
+
+    /** Mục nào đã quá ngày hết hạn mà vẫn để tự gia hạn thì chạy chu trình mới (kể cả khi lâu không mở app). */
+    fun rollCountdowns() {
+        val td = today()
+        if (value.countdowns.none { it.renews() && it.daysLeft(td) < 0 }) return
+        update { d ->
+            d.copy(countdowns = d.countdowns.map { c ->
+                var x = c
+                var guard = 0
+                while (x.renews() && x.daysLeft(td) < 0 && guard < 500) {
+                    x = x.renewed(); guard++
+                }
+                x
+            })
+        }
+    }
 
     fun setSettings(s: Settings) = update { it.copy(settings = s) }
 
